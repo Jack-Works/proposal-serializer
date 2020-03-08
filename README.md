@@ -1,34 +1,46 @@
-# template-for-proposals
+# Proposal Serialization
 
-A repository template for ECMAScript proposals.
+Clone/transfer data between Realms & serialize data for storage.
 
-## Before creating a proposal
+# The basic idea
 
-Please ensure the following:
-  1. You have read the [process document](https://tc39.github.io/process-document/)
-  1. You have reviewed the [existing proposals](https://github.com/tc39/proposals/)
-  1. You are aware that your proposal requires being a member of TC39, or locating a TC39 member to "champion" your proposal
+This proposal aimed to provide a generic way to serialize and deserialize data.
 
-## Create your proposal repo
+## What does API may look like
 
-Follow these steps:
-  1.  Create your own repo, clone this one, and copy its contents into your repo. (Note: Do not fork this repo in GitHub's web interface, as that will later prevent transfer into the TC39 organization)
-  1.  Go to your repo settings “Options” page, under “GitHub Pages”, and set the source to the **master branch** and click Save.
-      1. Ensure "Issues" is checked.
-      1. Also, you probably want to disable "Wiki" and "Projects"
-  1.  Avoid merge conflicts with build process output files by running:
-      ```sh
-      git config --local --add merge.output.driver true
-      git config --local --add merge.output.driver true
-      ```
-  1.  Add a post-rewrite git hook to auto-rebuild the output on every commit:
-      ```sh
-      cp hooks/post-rewrite .git/hooks/post-rewrite
-      chmod +x .git/hooks/post-rewrite
-      ```
+<img src="https://raw.githubusercontent.com/Jack-Works/proposal-serializer/master/explainer.png" />
 
-## Maintain your proposal repo
+## Design goals
 
-  1. Make your changes to `spec.emu` (ecmarkup uses HTML syntax, but is not HTML, so I strongly suggest not naming it ".html")
-  1. Any commit that makes meaningful changes to the spec, should run `npm run build` and commit the resulting output.
-  1. Whenever you update `ecmarkup`, run `npm run build` and commit any changes that come from that dependency.
+### Format independent
+
+There will not be a built-in way in ECMAScript to serialize it into a string, blob or other formats.
+
+The host can implement one by themselves. E.g.:
+
+Browsers should make the serialization result structure clonable (https://developer.mozilla.org/en-US/docs/DOM/The_structured_clone_algorithm ). So developers can "store" a class instance into the Indexed DB then read it back next week.
+
+The NodeJS might be implementing a built-in module that can store the serialization result to the file system. But they should maintain the format across the new/old version by themself.
+
+### Configurable
+
+The structured clone algorithm is awesome, but there is no way to define custom data.
+For example, CryptoKey in WebCrypto API can be stored into Indexed DB (https://www.w3.org/TR/WebCryptoAPI/#cryptokey-interface-clone ), but a CryptoKey returned by a polyfill that implements AES (https://www.npmjs.com/package/asmcrypto.js ) can't do that.
+
+### Support Async serialization
+
+Some data structures need to be accessed asynchronously.
+
+### Exportable
+
+There is an interesting property in the CryptoKey interface members: `extractable`. With extractable = false, the host can store it internally (like IndexedDB) but not exportable to the external world (export as JSONWebKey).
+
+In this proposal, if the exportable is false, this serialization cannot be store into a place that may leak. For example for NodeJS, it's the file system.
+
+### Sendable
+
+If the data is okay to send to another Realm.
+
+### Transfer?
+
+In the structured clone algorithm, a heavy object like huge ArrayBuffer can be transferred to another Realm, then it is not accessible by the current Realm.
